@@ -1,0 +1,128 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sim-wfd-app
+    volumes:
+      - .:/var/www/html
+    environment:
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=sim_wfd
+      - DB_USERNAME=sim_wfd
+      - DB_PASSWORD=secret
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=redis
+      - CACHE_STORE=redis
+      - SESSION_DRIVER=redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sim-wfd
+
+  nginx:
+    image: nginx:alpine
+    container_name: sim-wfd-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - sim-wfd
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: sim-wfd-postgres
+    environment:
+      POSTGRES_DB: sim_wfd
+      POSTGRES_USER: sim_wfd
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sim_wfd"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sim-wfd
+
+  redis:
+    image: redis:7-alpine
+    container_name: sim-wfd-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sim-wfd
+
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sim-wfd-queue
+    command: php artisan queue:work --tries=3 --sleep=3
+    volumes:
+      - .:/var/www/html
+    environment:
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=sim_wfd
+      - DB_USERNAME=sim_wfd
+      - DB_PASSWORD=secret
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sim-wfd
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sim-wfd-scheduler
+    command: php artisan schedule:work
+    volumes:
+      - .:/var/www/html
+    environment:
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=sim_wfd
+      - DB_USERNAME=sim_wfd
+      - DB_PASSWORD=secret
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sim-wfd
+
+volumes:
+  pgdata:
+
+networks:
+  sim-wfd:
+    driver: bridge

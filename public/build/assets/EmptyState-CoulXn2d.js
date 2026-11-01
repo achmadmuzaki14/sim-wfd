@@ -1,0 +1,1 @@
+import{j as t}from"./app-BeS1UaGo.js";function x({title:s,description:e}){return t.jsxs("div",{className:"flex flex-col items-center justify-center py-12 text-center",children:[t.jsx("p",{className:"text-sm font-medium text-navy-500",children:s}),e&&t.jsx("p",{className:"mt-1 text-sm text-muted",children:e})]})}export{x as E};
